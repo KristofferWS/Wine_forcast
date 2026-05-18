@@ -40,16 +40,23 @@ export default function AllRegionsChart({ regions }) {
     setLoading(true)
     setError(null)
 
-    Promise.all(regions.map((r) => fetch(`/api/scores/${r.id}`).then((res) => res.json())))
-      .then((allScores) => {
+    Promise.allSettled(regions.map((r) => fetch(`/api/scores/${r.id}`).then((res) => {
+      if (!res.ok) throw new Error(res.status)
+      return res.json()
+    })))
+      .then((results) => {
         const byYear = {}
-        allScores.forEach((scores, i) => {
-          scores.forEach(({ year, score }) => {
+        results.forEach((result, i) => {
+          if (result.status !== 'fulfilled') return
+          result.value.forEach(({ year, score, modern_score }) => {
             if (!byYear[year]) byYear[year] = { year }
             byYear[year][regions[i].id] = score
+            byYear[year][regions[i].id + '_modern'] = modern_score
           })
         })
-        setData(Object.values(byYear).sort((a, b) => a.year - b.year))
+        const rows = Object.values(byYear).sort((a, b) => a.year - b.year)
+        if (!rows.length) setError('Failed to load scores for all regions.')
+        else setData(rows)
       })
       .catch(() => setError('Failed to load scores for all regions.'))
       .finally(() => setLoading(false))
@@ -73,7 +80,7 @@ export default function AllRegionsChart({ regions }) {
     <div className="bg-gray-900 rounded-lg p-6">
       <h2 className="text-xl font-semibold mb-1">All Regions — Vintage Scores</h2>
       <p className="text-gray-400 text-sm mb-5">
-        Ashenfelter index per region, 2000 – present. Higher = better growing conditions.
+        Solid = classic Ashenfelter score. Dashed = modern score (adjusted for frost &amp; heat stress). Higher = better.
       </p>
 
       <ResponsiveContainer width="100%" height={340}>
@@ -95,19 +102,37 @@ export default function AllRegionsChart({ regions }) {
           <Tooltip content={<CustomTooltip />} />
           <Legend
             wrapperStyle={{ paddingTop: '16px', fontSize: '12px', color: '#9CA3AF' }}
-            formatter={(value) => regions.find((r) => r.id === value)?.name ?? value}
+            formatter={(value) => {
+              const isModern = value.endsWith('_modern')
+              const id = isModern ? value.slice(0, -7) : value
+              const name = regions.find((r) => r.id === id)?.name ?? id
+              return isModern ? `${name} (modern)` : name
+            }}
           />
           {regions.map((r, i) => (
-            <Line
-              key={r.id}
-              type="monotone"
-              dataKey={r.id}
-              name={r.id}
-              stroke={COLORS[i % COLORS.length]}
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 4 }}
-            />
+            [
+              <Line
+                key={r.id}
+                type="monotone"
+                dataKey={r.id}
+                name={r.id}
+                stroke={COLORS[i % COLORS.length]}
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4 }}
+              />,
+              <Line
+                key={r.id + '_modern'}
+                type="monotone"
+                dataKey={r.id + '_modern'}
+                name={r.id + '_modern'}
+                stroke={COLORS[i % COLORS.length]}
+                strokeWidth={1.5}
+                strokeDasharray="4 3"
+                dot={false}
+                activeDot={{ r: 3 }}
+              />,
+            ]
           ))}
         </LineChart>
       </ResponsiveContainer>

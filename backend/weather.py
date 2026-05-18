@@ -23,7 +23,7 @@ async def fetch_weather_data(lat: float, lon: float, start_date: str, end_date: 
         "longitude": lon,
         "start_date": start_date,
         "end_date": end_date,
-        "daily": "temperature_2m_mean,precipitation_sum",
+        "daily": "temperature_2m_mean,temperature_2m_min,temperature_2m_max,precipitation_sum",
         "timezone": "Europe/Paris",
     }
 
@@ -32,10 +32,13 @@ async def fetch_weather_data(lat: float, lon: float, start_date: str, end_date: 
         response.raise_for_status()
         payload = response.json()
 
+    daily = payload["daily"]
     df = pd.DataFrame({
-        "date": pd.to_datetime(payload["daily"]["time"]),
-        "temperature": pd.to_numeric(payload["daily"]["temperature_2m_mean"], errors="coerce"),
-        "precipitation": pd.to_numeric(payload["daily"]["precipitation_sum"], errors="coerce"),
+        "date": pd.to_datetime(daily["time"]),
+        "temperature": pd.to_numeric(daily["temperature_2m_mean"], errors="coerce"),
+        "temperature_min": pd.to_numeric(daily["temperature_2m_min"], errors="coerce"),
+        "temperature_max": pd.to_numeric(daily["temperature_2m_max"], errors="coerce"),
+        "precipitation": pd.to_numeric(daily["precipitation_sum"], errors="coerce"),
     })
     df["precipitation"] = df["precipitation"].fillna(0.0)
     df = df.dropna(subset=["temperature"])

@@ -21,7 +21,10 @@ function CustomTooltip({ active, payload }) {
         {TOP_VINTAGES.has(d.year) ? ' ★' : ''}
       </p>
       <p className="text-gray-300">
-        Score: <span className="text-white font-mono">{d.score?.toFixed(3)}</span>
+        Classic: <span className="text-white font-mono">{d.score?.toFixed(3)}</span>
+      </p>
+      <p className="text-gray-300">
+        Modern: <span className="text-white font-mono">{d.modern_score?.toFixed(3)}</span>
       </p>
       <p className="text-gray-400 text-xs mt-1">Click bar for weather details</p>
     </div>
@@ -38,7 +41,7 @@ export default function VintageScoreChart({ scores, onSelectYear, selectedYear }
     <div className="bg-gray-900 rounded-lg p-6">
       <h2 className="text-xl font-semibold mb-1">Vintage Scores 2000 – present</h2>
       <p className="text-gray-400 text-sm mb-5">
-        Ashenfelter index — higher = better growing conditions.{' '}
+        Higher = better growing conditions.{' '}
         <span className="text-amber-500">★ Known top vintages</span>
       </p>
 
@@ -63,7 +66,7 @@ export default function VintageScoreChart({ scores, onSelectYear, selectedYear }
             tickFormatter={(v) => v.toFixed(1)}
           />
           <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
-          <Bar dataKey="score" radius={[3, 3, 0, 0]} cursor="pointer" maxBarSize={28}>
+          <Bar dataKey="score" name="Classic" radius={[3, 3, 0, 0]} cursor="pointer" maxBarSize={18}>
             {scores.map((s) => (
               <Cell
                 key={s.year}
@@ -78,17 +81,30 @@ export default function VintageScoreChart({ scores, onSelectYear, selectedYear }
               />
             ))}
           </Bar>
+          <Bar dataKey="modern_score" name="Modern" radius={[3, 3, 0, 0]} cursor="pointer" maxBarSize={18}>
+            {scores.map((s) => (
+              <Cell
+                key={s.year}
+                fill={s.year === selectedYear ? '#A5B4FC' : '#6366F1'}
+                opacity={selectedYear && s.year !== selectedYear ? 0.6 : 1}
+              />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
 
-      <div className="flex gap-5 mt-4 text-xs text-gray-400">
+      <div className="flex flex-wrap gap-5 mt-4 text-xs text-gray-400">
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-sm bg-amber-600 inline-block" />
-          Top vintage (2000, 2005, 2009, 2010, 2016, 2022)
+          Classic — top vintage
         </span>
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-sm bg-gray-600 inline-block" />
-          Standard vintage
+          Classic — standard
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm bg-indigo-500 inline-block" />
+          Modern score
         </span>
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-sm bg-yellow-300 inline-block" />

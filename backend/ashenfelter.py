@@ -49,12 +49,14 @@ def extract_year_data(df: pd.DataFrame, year: int) -> Optional[dict]:
     if len(w) < _MIN_WINTER_DAYS or len(g) < _MIN_GROWTH_DAYS or len(h) < _MIN_HARVEST_DAYS:
         return None
 
-    # Frost risk: days below 0 °C in April (budburst window)
+    # Frost risk: days where daily min drops below 0 °C in April (budburst window)
     april_mask = (y == year) & (m == 4)
-    frost_days = int(df[april_mask & (df["temperature"] < 0)].shape[0])
+    frost_col = "temperature_min" if "temperature_min" in df.columns else "temperature"
+    frost_days = int(df[april_mask & (df[frost_col] < 0)].shape[0])
 
-    # Extreme heat: days above 35 °C during the growth period
-    heat_days = int(df[growth_mask & (df["temperature"] > 35)].shape[0])
+    # Extreme heat: days where daily max exceeds 35 °C during growth season
+    heat_col = "temperature_max" if "temperature_max" in df.columns else "temperature"
+    heat_days = int(df[growth_mask & (df[heat_col] > 35)].shape[0])
 
     # Precipitation distribution: std dev of daily rain Apr–Sep
     growth_precip = g["precipitation"]
