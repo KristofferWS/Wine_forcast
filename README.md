@@ -2,18 +2,7 @@
 
 Weather-based vintage quality prediction for 6 Bordeaux appellations, using the Ashenfelter model and Open-Meteo historical weather data.
 
-## Quick start — Docker (recommended)
-
-```bash
-docker compose up --build
-```
-
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8000
-
-The SQLite database persists in a Docker volume (`wine_db`). First time you select a region, the backend fetches ~25 years of weather data from Open-Meteo — this takes 10–30 seconds per region.
-
-## Development setup (without Docker)
+## Quick start
 
 ### Backend
 
@@ -26,11 +15,16 @@ python -m venv .venv
 # macOS/Linux
 source .venv/bin/activate
 
+# Windows only: install greenlet as a pre-built binary before the rest
+pip install --only-binary :all: greenlet
+
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 ```
 
 ### Frontend
+
+Open a second terminal:
 
 ```bash
 cd frontend
@@ -38,7 +32,20 @@ npm install
 npm run dev        # serves on http://localhost:3000
 ```
 
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+
 Vite proxies `/api/*` to `http://localhost:8000`, so no CORS configuration is needed in development.
+
+First time you select a region, the backend fetches ~25 years of weather data from Open-Meteo — this takes 10–30 seconds per region.
+
+## Docker (alternative)
+
+```bash
+docker compose up --build
+```
+
+Requires Docker Desktop to be running. The SQLite database persists in a Docker volume (`wine_db`).
 
 ## Pre-warming the cache
 

@@ -1,3 +1,5 @@
+import csv
+import io
 import logging
 from contextlib import asynccontextmanager
 from datetime import date, timedelta
@@ -5,9 +7,10 @@ from datetime import date, timedelta
 import httpx
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from ashenfelter import REGIONS, TOP_VINTAGES, calculate_score, extract_year_data
+from ashenfelter import REGIONS, TOP_VINTAGES, calculate_modern_score, calculate_score, extract_year_data
 from database import VintageScore, create_tables, get_db
 from weather import fetch_weather_data
 
@@ -39,9 +42,13 @@ def _score_to_dict(s: VintageScore) -> dict:
     return {
         "year": s.year,
         "score": s.score,
+        "modern_score": s.modern_score,
         "winter_rain": s.winter_rain,
         "growth_temp": s.growth_temp,
         "harvest_rain": s.harvest_rain,
+        "frost_days": s.frost_days,
+        "heat_days": s.heat_days,
+        "rain_variance": s.rain_variance,
         "is_top_vintage": s.year in TOP_VINTAGES,
     }
 
@@ -73,8 +80,17 @@ async def _populate_region(region: str, db: Session) -> list[VintageScore]:
             logger.warning("Insufficient data for %s %d", region, year)
             continue
 
-        score_val = calculate_score(**data)
-        vs = VintageScore(region=region, year=year, score=round(score_val, 3), **data)
+        score_val = calculate_score(data["winter_rain"], data["growth_temp"], data["harvest_rain"])
+        modern_val = calculate_modern_score(
+            data["winter_rain"], data["growth_temp"], data["harvest_rain"],
+            data["frost_days"], data["heat_days"],
+        )
+        vs = VintageScore(
+            region=region, year=year,
+            score=round(score_val, 3),
+            modern_score=round(modern_val, 3),
+            **data,
+        )
         db.add(vs)
         saved.append(vs)
 
@@ -136,8 +152,17 @@ async def get_score_year(region: str, year: int, db: Session = Depends(get_db)):
     if data is None:
         raise HTTPException(status_code=404, detail="Insufficient data for this year")
 
-    score_val = calculate_score(**data)
-    score = VintageScore(region=region, year=year, score=round(score_val, 3), **data)
+    score_val = calculate_score(data["winter_rain"], data["growth_temp"], data["harvest_rain"])
+    modern_val = calculate_modern_score(
+        data["winter_rain"], data["growth_temp"], data["harvest_rain"],
+        data["frost_days"], data["heat_days"],
+    )
+    score = VintageScore(
+        region=region, year=year,
+        score=round(score_val, 3),
+        modern_score=round(modern_val, 3),
+        **data,
+    )
     db.add(score)
     db.commit()
     db.refresh(score)
@@ -213,6 +238,35 @@ async def get_current_season(region: str):
         "partial_score": partial_score,
         "data": weather_data,
     }
+
+
+@app.get("/api/export/{region}")
+async def export_csv(region: str, db: Session = Depends(get_db)):
+    if region not in REGIONS:
+        raise HTTPException(status_code=404, detail="Region not found")
+
+    scores = (
+        db.query(VintageScore)
+        .filter(VintageScore.region == region)
+        .order_by(VintageScore.year)
+        .all()
+    )
+    if not scores:
+        raise HTTPException(status_code=404, detail="No data for region")
+
+    fields = ["year", "score", "modern_score", "winter_rain", "growth_temp",
+              "harvest_rain", "frost_days", "heat_days", "rain_variance", "is_top_vintage"]
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=fields)
+    writer.writeheader()
+    for s in scores:
+        writer.writerow(_score_to_dict(s))
+
+    return StreamingResponse(
+        io.BytesIO(buf.getvalue().encode()),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={region}_vintages.csv"},
+    )
 
 
 @app.post("/api/populate")

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import AllRegionsChart from './components/AllRegionsChart'
 import CurrentSeasonWidget from './components/CurrentSeasonWidget'
 import RegionSelector from './components/RegionSelector'
 import VintageScoreChart from './components/VintageScoreChart'
@@ -104,6 +105,8 @@ export default function App() {
             )}
           </>
         )}
+
+        {regions.length > 0 && <AllRegionsChart regions={regions} />}
       </main>
     </div>
   )
